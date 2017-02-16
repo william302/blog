@@ -3,11 +3,26 @@
 <head>
     <meta charset="utf-8" />
     <title>Test users - Awesome Python Webapp</title>
+    <script src="../static/js/jquery.min.js"></script>
+    <script src="../static/js/vue.min.js"></script>
+    <script>
+        $(function () {
+    var vm = new Vue({
+        el: '#vm',
+        data: {
+            email: '',
+            name: ''
+        }
+    });
+    window.vm = vm;
+});
+    </script>
 </head>
 <body>
-    <h1>All users</h1>
-    {% for u in users %}
-    <p>{{ u.name }} / {{ u.email }}</p>
-    {% endfor %}
+    <form id="vm" action="/register" method="post">
+    <p><input v-model="email"></p>
+    <p><input v-model="name"></p>
+    <p><input type="submit"></p>
+</form>
 </body>
 </html>
