@@ -3,6 +3,7 @@ import hmac
 import random
 import re
 import string
+import markdown2
 
 import time
 from aiohttp import web
@@ -11,25 +12,34 @@ from flask import json
 from flask import logging
 from flask import make_response
 
-app = Flask(__name__)
+
 
 from sqlalchemy import create_engine
+from sqlalchemy import func
 from sqlalchemy.orm import sessionmaker
-from database_setup import User, Post, Comment, Base
-from apis import APIError, APIValueError, APIPermissionError, APIResourceNotFoundError
 
-engine = create_engine("mysql+pymysql://root:admin@localhost:3306/blog", pool_recycle=3600, echo=True)
+from database_setup import User, Post, Comment, Base
+from apis import APIError, APIValueError, APIPermissionError, APIResourceNotFoundError, Page
+
+app = Flask(__name__)
+
+engine = create_engine("mysql+pymysql://root:admin@localhost:3306/blog?charset=utf8", pool_recycle=3600, echo=True)
 Base.metadata.bind = engine
 Session = sessionmaker(bind=engine)
 session = Session()
 
 
-def user2cookie(user, max_age):
-    # build cookie string by: id-expires-sha1
-    expires = str(int(time.time() + max_age))
-    s = '%s-%s-%s-%s' % (user.id, user.passwd, expires, _COOKIE_KEY)
-    L = [str(user.id), expires, hashlib.sha1(s.encode('utf-8')).hexdigest()]
-    return '-'.join(L)
+#Page stuff
+def get_page_index(page_str):
+    p = 1
+    try:
+        p = int(page_str)
+    except ValueError as e:
+        pass
+    if p < 1:
+        p = 1
+    return p
+
 
 #Password portion
 def make_salt():
@@ -51,8 +61,6 @@ def valid_pw(email, pw, h):
 
 #Cookie portion
 SECRET = 'imsosecret'
-COOKIE_NAME = 'session'
-_COOKIE_KEY = 'imsosecret'
 
 def hash_str(s):
     return hmac.new(SECRET.encode('utf-8'), s.encode('utf-8')).hexdigest()
@@ -67,6 +75,7 @@ def check_secure_val(h):
         val = h.split('|')[0]
         if h == make_secure_val(val):
             return val
+
 
 #RE portion
 USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
@@ -85,16 +94,23 @@ def valid_password(password):
 def valid_email(email):
     return EMAIL_RE.match(email) or not email
 
+@app.before_request
+def before_request():
+    val_email = request.cookies.get('email')
+    email = check_secure_val(val_email)
+    user = session.query(User).filter_by(email=email).first()
+
 # Handler portion
 @app.route('/')
 def index():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
+    blogs = session.query(Post).all()
     if email:
         user = session.query(User).filter_by(email=email).first()
-        return render_template('blog.html', user=user)
+        return render_template('blogs.html', user=user, blogs=blogs)
     else:
-        return render_template('blog.html')
+        return render_template('blogs.html', blogs=blogs)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -149,13 +165,191 @@ def authenticate():
                 raise APIValueError('passwd', 'Invalid password.')
         else:
             raise APIValueError('email', 'Email not exist.')
-            return 'ok'
 
 
+@app.route('/new_blog', methods=['GET', 'POST'])
+def new_blog():
+    val_email = request.cookies.get('email')
+    email = check_secure_val(val_email)
+    user = session.query(User).filter_by(email=email).first()
+    if request.method == 'GET':
+        return render_template('manage_blog_edit.html')
+    if request.method == 'POST':
+        data = request.get_json()
+        name = data['name']
+        summary = data['summary']
+        content = data['content']
+        if not name or not name.strip():
+            raise APIValueError('name', 'name cannot be empty.')
+        if not summary or not summary.strip():
+            raise APIValueError('summary', 'summary cannot be empty.')
+        if not content or not content.strip():
+            raise APIValueError('content', 'content cannot be empty.')
+        post = Post(user_id=user.id, subject=name.strip(), summary=summary.strip(), content=content.strip(),
+                    user_name=user.name, user_image=user.image)
+        session.add(post)
+        session.commit()
+        r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
+        r.headers['Content-type'] = 'application/json; charset=utf-8'
+        return r
 
 
+@app.route('/api/blogs', methods=['GET', 'POST'])
+def api_blogs():
+    if request.method == 'GET':
+        page = '1'
+        # data = request.get_data()
+        # page = data['page']
+        page_index = get_page_index(page)
+        num = session.query(Post).count()
+        app.logger.error(num)
+        p = Page(num, page_index)
+        if num == 0:
+            return dict(page=p, blogs=())
+        blogs = session.query(Post).all()
+        return jsonify(blogs=[i.serialize for i in blogs])
 
 
+@app.route('/api/users', methods=['GET', 'POST'])
+def api_users(page='1'):
+    if request.method == 'GET':
+        page_index = get_page_index(page)
+        num = session.query(User).count()
+        p = Page(num, page_index)
+        if num == 0:
+            return dict(page=p, users=())
+        users = session.query(User).all()
+        return jsonify(users=[i.serialize for i in users])
+
+
+@app.route('/api/comments', methods=['GET', 'POST'])
+def api_comments(page='1'):
+    if request.method == 'GET':
+        page_index = get_page_index(page)
+        num = session.query(Comment).count()
+        app.logger.error(num)
+        p = Page(num, page_index)
+        if num == 0:
+            return dict(page=p, users=())
+        comments = session.query(Comment).all()
+        return jsonify(comments=[i.serialize for i in comments])
+
+
+@app.route('/api/blogs/<int:blog_id>', methods=['GET', 'POST'])
+def api_blog_edit(blog_id):
+    if request.method == 'GET':
+        blog = session.query(Post).filter_by(id=blog_id).first()
+        return jsonify(blog=blog.serialize)
+
+
+@app.route('/blog/<int:blog_id>', methods=['GET', 'POST'])
+def blog_handler(blog_id):
+    val_email = request.cookies.get('email')
+    email = check_secure_val(val_email)
+    user = session.query(User).filter_by(email=email).first()
+    if request.method == 'GET':
+        blog = session.query(Post).filter_by(id=blog_id).first()
+        comments = session.query(Comment).filter_by(post_id=blog_id).all()
+        return render_template('blog.html', blog=blog, user=user, comments=comments)
+
+
+@app.route('/blogs/<int:blog_id>/comments', methods=['GET', 'POST'])
+def comment_handler(blog_id):
+    val_email = request.cookies.get('email')
+    email = check_secure_val(val_email)
+    user = session.query(User).filter_by(email=email).first()
+    if request.method == 'POST':
+        data = request.get_json()
+        content = data['content']
+        comment = Comment(content=content, user_id=user.id, post_id=blog_id, user_name=user.name, user_image=user.image)
+        session.add(comment)
+        session.commit()
+        r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
+        r.headers['Content-type'] = 'application/json; charset=utf-8'
+        return r
+
+
+@app.route('/manage/blogs', methods=['GET', 'POST'])
+def manage_blog():
+    val_email = request.cookies.get('email')
+    email = check_secure_val(val_email)
+    user = session.query(User).filter_by(email=email).first()
+    if not user:
+        return redirect('/authenticate')
+    page = '1'
+    if request.method == 'GET':
+        return render_template('manage_blog.html', page_index=get_page_index(page), user=user)
+
+
+@app.route('/manage/users', methods=['GET', 'POST'])
+def manage_user():
+    val_email = request.cookies.get('email')
+    email = check_secure_val(val_email)
+    user = session.query(User).filter_by(email=email).first()
+    if not user:
+        return redirect('/authenticate')
+    page = '1'
+    if request.method == 'GET':
+        return render_template('manage_users.html', page_index=get_page_index(page), user=user)
+
+
+@app.route('/manage/comments', methods=['GET', 'POST'])
+def manage_comment():
+    val_email = request.cookies.get('email')
+    email = check_secure_val(val_email)
+    user = session.query(User).filter_by(email=email).first()
+    if not user:
+        return redirect('/authenticate')
+    page = '1'
+    if request.method == 'GET':
+        return render_template('manage_comments.html', page_index=get_page_index(page), user=user)
+
+
+@app.route('/manage/blogs/create', methods=['GET', 'POST'])
+def manage_new_blog():
+    val_email = request.cookies.get('email')
+    email = check_secure_val(val_email)
+    user = session.query(User).filter_by(email=email).first()
+    if not user:
+        return redirect('/authenticate')
+    if request.method == 'GET':
+        return render_template('manage_blog_edit.html', id='', action='/manage/blogs/create', user=user)
+    if request.method == 'POST':
+        data = request.get_json()
+        name = data['name']
+        summary = data['summary']
+        content = data['content']
+        if not name or not name.strip():
+            raise APIValueError('name', 'name cannot be empty.')
+        if not summary or not summary.strip():
+            raise APIValueError('summary', 'summary cannot be empty.')
+        if not content or not content.strip():
+            raise APIValueError('content', 'content cannot be empty.')
+        post = Post(user_id=user.id, subject=name.strip(), summary=summary.strip(), content=content.strip(),
+                    user_name=user.name, user_image=user.image)
+        session.add(post)
+        session.commit()
+        r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
+        r.headers['Content-type'] = 'application/json; charset=utf-8'
+        return r
+
+
+@app.route('/manage/blogs/edit', methods=['GET', 'POST'])
+def manage_edit_blog():
+    val_email = request.cookies.get('email')
+    email = check_secure_val(val_email)
+    user = session.query(User).filter_by(email=email).first()
+    if not user:
+        return redirect('/authenticate')
+    if request.method == 'GET':
+        blog_id = request.args.get('id')
+        app.logger.error(blog_id)
+        return render_template('manage_blog_edit.html', id=blog_id, action='/api/blogs/%s' % blog_id, user=user)
+
+
+@app.route('/manage')
+def manage():
+    return redirect('/manage/blogs')
 
 
 if __name__ == '__main__':
