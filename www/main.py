@@ -3,10 +3,7 @@ import hmac
 import random
 import re
 import string
-import markdown2
 
-import time
-from aiohttp import web
 from flask import Flask, render_template, redirect, url_for, request, flash,jsonify
 from flask import json
 from flask import logging
@@ -15,7 +12,6 @@ from flask import make_response
 
 
 from sqlalchemy import create_engine
-from sqlalchemy import func
 from sqlalchemy.orm import sessionmaker
 
 from database_setup import User, Post, Comment, Base
@@ -105,12 +101,20 @@ def before_request():
 def index():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
-    blogs = session.query(Post).all()
+    blogs = []
+    page = request.args.get('page')
+    if not page:
+        page = '1'
+    page_index = get_page_index(page)
+    num = session.query(Post).count()
+    p = Page(num, page_index)
+    if num != 0:
+        blogs = session.query(Post).order_by(Post.created)
     if email:
         user = session.query(User).filter_by(email=email).first()
-        return render_template('blogs.html', user=user, blogs=blogs)
+        return render_template('blogs.html', user=user, blogs=blogs, page=jsonify(p.serialize), page_index=page_index)
     else:
-        return render_template('blogs.html', blogs=blogs)
+        return render_template('blogs.html', blogs=blogs, page=p.serialize)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -118,7 +122,6 @@ def register():
     if request.method == 'GET':
         return render_template('register.html')
     if request.method == 'POST':
-        app.logger.error('post')
         data = request.get_json()
         name = data['name']
         email = data['email']
@@ -167,47 +170,30 @@ def authenticate():
             raise APIValueError('email', 'Email not exist.')
 
 
-@app.route('/new_blog', methods=['GET', 'POST'])
-def new_blog():
+@app.route('/signout', methods=['GET', 'POST'])
+def sign_out():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
     user = session.query(User).filter_by(email=email).first()
     if request.method == 'GET':
-        return render_template('manage_blog_edit.html')
-    if request.method == 'POST':
-        data = request.get_json()
-        name = data['name']
-        summary = data['summary']
-        content = data['content']
-        if not name or not name.strip():
-            raise APIValueError('name', 'name cannot be empty.')
-        if not summary or not summary.strip():
-            raise APIValueError('summary', 'summary cannot be empty.')
-        if not content or not content.strip():
-            raise APIValueError('content', 'content cannot be empty.')
-        post = Post(user_id=user.id, subject=name.strip(), summary=summary.strip(), content=content.strip(),
-                    user_name=user.name, user_image=user.image)
-        session.add(post)
-        session.commit()
-        r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
-        r.headers['Content-type'] = 'application/json; charset=utf-8'
+        r = make_response(redirect('/'))
+        r.set_cookie('email', '', expires=0)
         return r
 
 
 @app.route('/api/blogs', methods=['GET', 'POST'])
 def api_blogs():
     if request.method == 'GET':
-        page = '1'
-        # data = request.get_data()
-        # page = data['page']
+        page = request.args.get('page')
+        if not page:
+            page = '1'
         page_index = get_page_index(page)
         num = session.query(Post).count()
-        app.logger.error(num)
         p = Page(num, page_index)
         if num == 0:
             return dict(page=p, blogs=())
-        blogs = session.query(Post).all()
-        return jsonify(blogs=[i.serialize for i in blogs])
+        blogs = session.query(Post).order_by(Post.created).offset(p.offset).limit(p.limit)
+        return jsonify(page=p.serialize, blogs=[i.serialize for i in blogs])
 
 
 @app.route('/api/users', methods=['GET', 'POST'])
@@ -218,8 +204,8 @@ def api_users(page='1'):
         p = Page(num, page_index)
         if num == 0:
             return dict(page=p, users=())
-        users = session.query(User).all()
-        return jsonify(users=[i.serialize for i in users])
+        users = session.query(User).order_by(User.created).offset(p.offset).limit(p.limit)
+        return jsonify(page=p.serialize, users=[i.serialize for i in users])
 
 
 @app.route('/api/comments', methods=['GET', 'POST'])
@@ -231,15 +217,51 @@ def api_comments(page='1'):
         p = Page(num, page_index)
         if num == 0:
             return dict(page=p, users=())
-        comments = session.query(Comment).all()
-        return jsonify(comments=[i.serialize for i in comments])
+        comments = session.query(Comment).order_by(Comment.created).offset(p.offset).limit(p.limit)
+        return jsonify(page=p.serialize, comments=[i.serialize for i in comments])
 
 
 @app.route('/api/blogs/<int:blog_id>', methods=['GET', 'POST'])
 def api_blog_edit(blog_id):
+    blog = session.query(Post).filter_by(id=blog_id).first()
     if request.method == 'GET':
+        return jsonify(blog.serialize)
+    if request.method == 'POST':
+        data = request.get_json()
+        subject = data['subject']
+        summary = data['summary']
+        content = data['content']
+        if not subject or not subject.strip():
+            raise APIValueError('subject', 'subject cannot be empty.')
+        if not summary or not summary.strip():
+            raise APIValueError('summary', 'summary cannot be empty.')
+        if not content or not content.strip():
+            raise APIValueError('content', 'content cannot be empty.')
+        blog.subject = subject.strip()
+        blog.summary = summary.strip()
+        blog.content = content.strip()
+        session.add(blog)
+        session.commit()
         blog = session.query(Post).filter_by(id=blog_id).first()
-        return jsonify(blog=blog.serialize)
+        return jsonify(blog.serialize)
+
+
+@app.route('/api/blogs/<int:blog_id>/delete', methods=['GET', 'POST'])
+def api_blog_delete(blog_id):
+    blog = session.query(Post).filter_by(id=blog_id).first()
+    if request.method == 'POST':
+        session.delete(blog)
+        session.commit()
+        return jsonify(id=blog_id)
+
+
+@app.route('/api/comments/<int:comment_id>/delete', methods=['GET', 'POST'])
+def api_comment_delete(comment_id):
+    comment = session.query(Comment).filter_by(id=comment_id).first()
+    if request.method == 'POST':
+        session.delete(comment)
+        session.commit()
+        return jsonify(id=comment_id)
 
 
 @app.route('/blog/<int:blog_id>', methods=['GET', 'POST'])
@@ -249,7 +271,7 @@ def blog_handler(blog_id):
     user = session.query(User).filter_by(email=email).first()
     if request.method == 'GET':
         blog = session.query(Post).filter_by(id=blog_id).first()
-        comments = session.query(Comment).filter_by(post_id=blog_id).all()
+        comments = session.query(Comment).filter_by(post_id=blog_id).order_by(Comment.created)
         return render_template('blog.html', blog=blog, user=user, comments=comments)
 
 
@@ -276,7 +298,9 @@ def manage_blog():
     user = session.query(User).filter_by(email=email).first()
     if not user:
         return redirect('/authenticate')
-    page = '1'
+    page = request.args.get('page')
+    if not page:
+        page = '1'
     if request.method == 'GET':
         return render_template('manage_blog.html', page_index=get_page_index(page), user=user)
 
@@ -288,7 +312,9 @@ def manage_user():
     user = session.query(User).filter_by(email=email).first()
     if not user:
         return redirect('/authenticate')
-    page = '1'
+    page = request.args.get('page')
+    if not page:
+        page = '1'
     if request.method == 'GET':
         return render_template('manage_users.html', page_index=get_page_index(page), user=user)
 
@@ -300,7 +326,9 @@ def manage_comment():
     user = session.query(User).filter_by(email=email).first()
     if not user:
         return redirect('/authenticate')
-    page = '1'
+    page = request.args.get('page')
+    if not page:
+        page = '1'
     if request.method == 'GET':
         return render_template('manage_comments.html', page_index=get_page_index(page), user=user)
 
@@ -316,16 +344,16 @@ def manage_new_blog():
         return render_template('manage_blog_edit.html', id='', action='/manage/blogs/create', user=user)
     if request.method == 'POST':
         data = request.get_json()
-        name = data['name']
+        subject = data['subject']
         summary = data['summary']
         content = data['content']
-        if not name or not name.strip():
-            raise APIValueError('name', 'name cannot be empty.')
+        if not subject or not subject.strip():
+            raise APIValueError('subject', 'subject cannot be empty.')
         if not summary or not summary.strip():
             raise APIValueError('summary', 'summary cannot be empty.')
         if not content or not content.strip():
             raise APIValueError('content', 'content cannot be empty.')
-        post = Post(user_id=user.id, subject=name.strip(), summary=summary.strip(), content=content.strip(),
+        post = Post(user_id=user.id, subject=subject.strip(), summary=summary.strip(), content=content.strip(),
                     user_name=user.name, user_image=user.image)
         session.add(post)
         session.commit()
