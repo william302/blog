@@ -47,8 +47,7 @@ class Post(Base):
     content = Column(Text(8000))
     created = Column(DateTime, default=datetime.now())
     last_modify = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
-    user = relationship(User)
-    user_id = Column(Integer, ForeignKey('user.id'))
+    user_id = Column(String(80), nullable=False)
     user_name = Column(String(80), nullable=False)
     user_image = Column(Text(8000), nullable=False)
 
@@ -74,10 +73,8 @@ class Comment(Base):
     content = Column(Text(8000))
     created = Column(DateTime, default=datetime.now())
     last_modify = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
-    user = relationship(User)
-    user_id = Column(Integer, ForeignKey('user.id'))
-    post = relationship(Post)
-    post_id = Column(Integer, ForeignKey('post.id'))
+    post_id = Column(String(80), nullable=False)
+    user_id = Column(String(80), nullable=False)
     user_name = Column(String(80), nullable=False)
     user_image = Column(Text(8000), nullable=False)
 

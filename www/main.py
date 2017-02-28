@@ -108,6 +108,7 @@ def index():
     page_index = get_page_index(page)
     num = session.query(Post).count()
     p = Page(num, page_index)
+    blogs = []
     if num != 0:
         blogs = session.query(Post).order_by(Post.created)
     if email:
@@ -191,7 +192,7 @@ def api_blogs():
         num = session.query(Post).count()
         p = Page(num, page_index)
         if num == 0:
-            return dict(page=p, blogs=())
+            return jsonify(page=p.serialize, blogs=[])
         blogs = session.query(Post).order_by(Post.created).offset(p.offset).limit(p.limit)
         return jsonify(page=p.serialize, blogs=[i.serialize for i in blogs])
 
@@ -203,7 +204,7 @@ def api_users(page='1'):
         num = session.query(User).count()
         p = Page(num, page_index)
         if num == 0:
-            return dict(page=p, users=())
+            return jsonify(page=p.serialize, users=[])
         users = session.query(User).order_by(User.created).offset(p.offset).limit(p.limit)
         return jsonify(page=p.serialize, users=[i.serialize for i in users])
 
@@ -216,7 +217,7 @@ def api_comments(page='1'):
         app.logger.error(num)
         p = Page(num, page_index)
         if num == 0:
-            return dict(page=p, users=())
+            return jsonify(page=p.serialize, comments=[])
         comments = session.query(Comment).order_by(Comment.created).offset(p.offset).limit(p.limit)
         return jsonify(page=p.serialize, comments=[i.serialize for i in comments])
 
@@ -283,7 +284,9 @@ def comment_handler(blog_id):
     if request.method == 'POST':
         data = request.get_json()
         content = data['content']
-        comment = Comment(content=content, user_id=user.id, post_id=blog_id, user_name=user.name, user_image=user.image)
+        if not content or not content.strip():
+            raise APIValueError('content', 'content cannot be empty.')
+        comment = Comment(content=content.strip(), user_id=user.id, post_id=blog_id, user_name=user.name, user_image=user.image)
         session.add(comment)
         session.commit()
         r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
