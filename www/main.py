@@ -4,22 +4,17 @@ import random
 import re
 import string
 
-from flask import Flask, render_template, redirect, url_for, request, flash,jsonify
+from flask import Flask, render_template, redirect, url_for, request, jsonify
 from flask import json
-from flask import logging
 from flask import make_response
 
-
-
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from database_setup import User, Post, Comment, Base
+from database_setup import User, Post, Comment, Base, engine
 from apis import APIError, APIValueError, APIPermissionError, APIResourceNotFoundError, Page
 
 app = Flask(__name__)
 
-engine = create_engine("mysql+pymysql://root:admin@localhost:3306/blog?charset=utf8", pool_recycle=3600, pool_size=100, echo=True)
 Base.metadata.bind = engine
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -259,7 +254,7 @@ def api_comment_delete(comment_id):
     if request.method == 'POST':
         session.delete(comment)
         session.commit()
-        return jsonify(id=comment_id)
+        return jsonify(id=1)
 
 
 @app.route('/blog/<int:blog_id>', methods=['GET', 'POST'])
@@ -269,7 +264,7 @@ def blog_handler(blog_id):
     user = session.query(User).filter_by(email=email).first()
     if request.method == 'GET':
         blog = session.query(Post).filter_by(id=blog_id).first()
-        comments = session.query(Comment).filter_by(post_id=blog_id).order_by(Comment.created)
+        comments = session.query(Comment).filter_by(post_id=blog_id).order_by(Comment.created).all()
         return render_template('blog.html', blog=blog, user=user, comments=comments)
 
 

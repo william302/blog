@@ -1,10 +1,9 @@
 
-from sqlalchemy import create_engine, Column, Integer, String, MetaData, DateTime, Boolean,Text, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String,  DateTime, Boolean, Text
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
 from datetime import datetime
 
-engine = create_engine("mysql+pymysql://root:admin@localhost:3306/blog?charset=utf8", pool_recycle=3600, echo=True)
+engine = create_engine("mysql+pymysql://root:admin@localhost:3306/blog?charset=utf8", pool_recycle=3600, pool_size=100, echo=True)
 Base = declarative_base()
 
 
