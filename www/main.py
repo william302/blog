@@ -19,7 +19,7 @@ from apis import APIError, APIValueError, APIPermissionError, APIResourceNotFoun
 
 app = Flask(__name__)
 
-engine = create_engine("mysql+pymysql://root:admin@localhost:3306/blog?charset=utf8", pool_recycle=3600, echo=True)
+engine = create_engine("mysql+pymysql://root:admin@localhost:3306/blog?charset=utf8", pool_recycle=3600, pool_size=100, echo=True)
 Base.metadata.bind = engine
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -173,9 +173,6 @@ def authenticate():
 
 @app.route('/signout', methods=['GET', 'POST'])
 def sign_out():
-    val_email = request.cookies.get('email')
-    email = check_secure_val(val_email)
-    user = session.query(User).filter_by(email=email).first()
     if request.method == 'GET':
         r = make_response(redirect('/'))
         r.set_cookie('email', '', expires=0)
