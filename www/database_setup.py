@@ -1,10 +1,15 @@
-
+import markdown2
 from sqlalchemy import create_engine, Column, Integer, String,  DateTime, Boolean, Text
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
 engine = create_engine("mysql+pymysql://root:admin@localhost:3306/blog?charset=utf8", pool_recycle=3600, pool_size=100, echo=True)
 Base = declarative_base()
+
+
+def text2html(text):
+    lines = map(lambda s: '<p>%s</p>' % s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'), filter(lambda s: s.strip() != '', text.split('\n')))
+    return ''.join(lines)
 
 
 def dump_datetime(value):
@@ -17,11 +22,11 @@ class User(Base):
     __tablename__ = 'user'
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(80), nullable=False)
-    email = Column(String(180))
+    name = Column(String(30), nullable=False)
+    email = Column(String(30))
     admin = Column(Boolean, default=False)
-    passwd = Column(String(80), nullable=False)
-    image = Column(Text(8000))
+    passwd = Column(String(300), nullable=False)
+    image = Column(String(3000))
     created = Column(DateTime, default=datetime.now())
 
     @property
@@ -41,14 +46,14 @@ class Post(Base):
     __tablename__ = 'post'
 
     id = Column(Integer, primary_key=True)
-    subject = Column(String(180))
-    summary = Column(String(800))
-    content = Column(Text(8000))
+    subject = Column(String(100))
+    summary = Column(String(300))
+    content = Column(String(3000))
     created = Column(DateTime, default=datetime.now())
     last_modify = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
-    user_id = Column(String(80), nullable=False)
-    user_name = Column(String(80), nullable=False)
-    user_image = Column(Text(8000), nullable=False)
+    user_id = Column(String(30), nullable=False)
+    user_name = Column(String(30), nullable=False)
+    user_image = Column(String(3000), nullable=False)
 
     @property
     def serialize(self):
@@ -64,18 +69,22 @@ class Post(Base):
             'user_image': self.user_image
         }
 
+    @property
+    def content_html(self):
+        return markdown2.markdown(self.content)
+
 
 class Comment(Base):
     __tablename__ = 'comment'
 
     id = Column(Integer, primary_key=True)
-    content = Column(Text(8000))
+    content = Column(String(3000))
     created = Column(DateTime, default=datetime.now())
     last_modify = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
-    post_id = Column(String(80), nullable=False)
-    user_id = Column(String(80), nullable=False)
-    user_name = Column(String(80), nullable=False)
-    user_image = Column(Text(8000), nullable=False)
+    post_id = Column(String(30), nullable=False)
+    user_id = Column(String(30), nullable=False)
+    user_name = Column(String(30), nullable=False)
+    user_image = Column(String(3000), nullable=False)
 
     @property
     def serialize(self):
@@ -89,6 +98,11 @@ class Comment(Base):
             'user_image': self.user_image,
             'post_id': self.post_id
         }
+
+    @property
+    def content_html(self):
+        return text2html(self.content)
+
 
 
 Base.metadata.create_all(engine)

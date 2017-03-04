@@ -90,7 +90,6 @@ def valid_email(email):
 def index():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
-    blogs = []
     page = request.args.get('page')
     if not page:
         page = '1'
@@ -125,18 +124,18 @@ def register():
         if not passwd or not PASSWORD_RE.match(passwd):
             raise APIValueError('passwd')
         users = session.query(User).filter_by(email=email).first()
-        session.close()
         if users:
             raise APIError('register:failed', email, 'Email is already in use.')
         else:
             pw_hash = make_pw_hash(email, passwd)
+            email_hash = hashlib.md5(email.encode('utf-8')).hexdigest()
+            app.logger.error(email_hash)
             user = User(name=name.strip(), email=email, passwd=pw_hash,
-                        image='http://www.gravatar.com/avatar/%s?d=mm&s=120' % hashlib.md5(
-                            email.encode('utf-8')).hexdigest())
+                        image='http://www.gravatar.com/avatar/%s?d=monsterid&s=120' % email_hash)
             session.add(user)
             session.commit()
             session.close()
-            r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
+            r = make_response(jsonify(email))
             r.headers['Content-type'] = 'application/json; charset=utf-8'
             r.set_cookie('email', make_secure_val(email))
             return r
@@ -392,5 +391,5 @@ def manage():
 
 if __name__ == '__main__':
     app.secret_key = 'super_secret_key'
-    # app.debug = True
+    app.debug = True
     app.run(host='0.0.0.0', port=8080)
