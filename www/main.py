@@ -49,7 +49,6 @@ def valid_pw(email, pw, h):
     hash_val = make_pw_hash(email, pw, salt)
     return hash_val == h
 
-
 #Cookie portion
 SECRET = 'imsosecret'
 
@@ -85,11 +84,6 @@ def valid_password(password):
 def valid_email(email):
     return EMAIL_RE.match(email) or not email
 
-@app.before_request
-def before_request():
-    val_email = request.cookies.get('email')
-    email = check_secure_val(val_email)
-    user = session.query(User).filter_by(email=email).first()
 
 # Handler portion
 @app.route('/')
@@ -106,8 +100,10 @@ def index():
     blogs = []
     if num != 0:
         blogs = session.query(Post).order_by(Post.created)
+        session.close()
     if email:
         user = session.query(User).filter_by(email=email).first()
+        session.close()
         return render_template('blogs.html', user=user, blogs=blogs, page=jsonify(p.serialize), page_index=page_index)
     else:
         return render_template('blogs.html', blogs=blogs, page=p.serialize)
@@ -129,6 +125,7 @@ def register():
         if not passwd or not PASSWORD_RE.match(passwd):
             raise APIValueError('passwd')
         users = session.query(User).filter_by(email=email).first()
+        session.close()
         if users:
             raise APIError('register:failed', email, 'Email is already in use.')
         else:
@@ -138,6 +135,7 @@ def register():
                             email.encode('utf-8')).hexdigest())
             session.add(user)
             session.commit()
+            session.close()
             r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
             r.headers['Content-type'] = 'application/json; charset=utf-8'
             r.set_cookie('email', make_secure_val(email))
@@ -153,6 +151,7 @@ def authenticate():
         email = data['email']
         passwd = data['passwd']
         u = session.query(User).filter_by(email=email).first()
+        session.close()
         if u:
             pw_hash = u.passwd
             if valid_pw(email, passwd, pw_hash):
@@ -186,6 +185,7 @@ def api_blogs():
         if num == 0:
             return jsonify(page=p.serialize, blogs=[])
         blogs = session.query(Post).order_by(Post.created).offset(p.offset).limit(p.limit)
+        session.close()
         return jsonify(page=p.serialize, blogs=[i.serialize for i in blogs])
 
 
@@ -198,6 +198,7 @@ def api_users(page='1'):
         if num == 0:
             return jsonify(page=p.serialize, users=[])
         users = session.query(User).order_by(User.created).offset(p.offset).limit(p.limit)
+        session.close()
         return jsonify(page=p.serialize, users=[i.serialize for i in users])
 
 
@@ -211,12 +212,14 @@ def api_comments(page='1'):
         if num == 0:
             return jsonify(page=p.serialize, comments=[])
         comments = session.query(Comment).order_by(Comment.created).offset(p.offset).limit(p.limit)
+        session.close()
         return jsonify(page=p.serialize, comments=[i.serialize for i in comments])
 
 
 @app.route('/api/blogs/<int:blog_id>', methods=['GET', 'POST'])
 def api_blog_edit(blog_id):
     blog = session.query(Post).filter_by(id=blog_id).first()
+    session.close()
     if request.method == 'GET':
         return jsonify(blog.serialize)
     if request.method == 'POST':
@@ -236,6 +239,7 @@ def api_blog_edit(blog_id):
         session.add(blog)
         session.commit()
         blog = session.query(Post).filter_by(id=blog_id).first()
+        session.close()
         return jsonify(blog.serialize)
 
 
@@ -245,6 +249,7 @@ def api_blog_delete(blog_id):
     if request.method == 'POST':
         session.delete(blog)
         session.commit()
+        session.close()
         return jsonify(id=blog_id)
 
 
@@ -254,6 +259,7 @@ def api_comment_delete(comment_id):
     if request.method == 'POST':
         session.delete(comment)
         session.commit()
+        session.close()
         return jsonify(id=1)
 
 
@@ -265,7 +271,8 @@ def blog_handler(blog_id):
     if request.method == 'GET':
         blog = session.query(Post).filter_by(id=blog_id).first()
         comments = session.query(Comment).filter_by(post_id=blog_id).order_by(Comment.created).all()
-        return render_template('blog.html', blog=blog, user=user, comments=comments)
+        session.close()
+        return render_template('blog.html', blog=blog, user=user, comments=comments, blog_id=blog_id)
 
 
 @app.route('/blogs/<int:blog_id>/comments', methods=['GET', 'POST'])
@@ -273,6 +280,7 @@ def comment_handler(blog_id):
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
     user = session.query(User).filter_by(email=email).first()
+    session.close()
     if request.method == 'POST':
         data = request.get_json()
         content = data['content']
@@ -281,6 +289,7 @@ def comment_handler(blog_id):
         comment = Comment(content=content.strip(), user_id=user.id, post_id=blog_id, user_name=user.name, user_image=user.image)
         session.add(comment)
         session.commit()
+        session.close()
         r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
         r.headers['Content-type'] = 'application/json; charset=utf-8'
         return r
@@ -291,6 +300,7 @@ def manage_blog():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
     user = session.query(User).filter_by(email=email).first()
+    session.close()
     if not user:
         return redirect('/authenticate')
     page = request.args.get('page')
@@ -305,6 +315,7 @@ def manage_user():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
     user = session.query(User).filter_by(email=email).first()
+    session.close()
     if not user:
         return redirect('/authenticate')
     page = request.args.get('page')
@@ -319,6 +330,7 @@ def manage_comment():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
     user = session.query(User).filter_by(email=email).first()
+    session.close()
     if not user:
         return redirect('/authenticate')
     page = request.args.get('page')
@@ -333,6 +345,7 @@ def manage_new_blog():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
     user = session.query(User).filter_by(email=email).first()
+    session.close()
     if not user:
         return redirect('/authenticate')
     if request.method == 'GET':
@@ -352,6 +365,7 @@ def manage_new_blog():
                     user_name=user.name, user_image=user.image)
         session.add(post)
         session.commit()
+        session.close()
         r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
         r.headers['Content-type'] = 'application/json; charset=utf-8'
         return r
@@ -362,6 +376,7 @@ def manage_edit_blog():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
     user = session.query(User).filter_by(email=email).first()
+    session.close()
     if not user:
         return redirect('/authenticate')
     if request.method == 'GET':
@@ -377,5 +392,5 @@ def manage():
 
 if __name__ == '__main__':
     app.secret_key = 'super_secret_key'
-    app.debug = True
+    # app.debug = True
     app.run(host='0.0.0.0', port=8080)
