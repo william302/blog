@@ -25,8 +25,8 @@ class User(Base):
     name = Column(String(30), nullable=False)
     email = Column(String(30))
     admin = Column(Boolean, default=False)
-    passwd = Column(String(300), nullable=False)
-    image = Column(String(3000))
+    passwd = Column(String(200), nullable=False)
+    image = Column(String(200))
     created = Column(DateTime, default=datetime.now())
 
     @property
@@ -53,7 +53,7 @@ class Post(Base):
     last_modify = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
     user_id = Column(String(30), nullable=False)
     user_name = Column(String(30), nullable=False)
-    user_image = Column(String(3000), nullable=False)
+    user_image = Column(String(200), nullable=False)
 
     @property
     def serialize(self):
@@ -84,7 +84,7 @@ class Comment(Base):
     post_id = Column(String(30), nullable=False)
     user_id = Column(String(30), nullable=False)
     user_name = Column(String(30), nullable=False)
-    user_image = Column(String(3000), nullable=False)
+    user_image = Column(String(200), nullable=False)
 
     @property
     def serialize(self):
