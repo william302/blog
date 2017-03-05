@@ -98,14 +98,14 @@ def index():
     p = Page(num, page_index)
     blogs = []
     if num != 0:
-        blogs = session.query(Post).order_by(Post.created)
+        blogs = session.query(Post).order_by(Post.created).offset(p.offset).limit(p.limit)
         session.close()
     if email:
         user = session.query(User).filter_by(email=email).first()
         session.close()
-        return render_template('blogs.html', user=user, blogs=blogs, page=jsonify(p.serialize), page_index=page_index)
+        return render_template('blogs.html', user=user, blogs=blogs, page=p.serialize, page_index=page_index)
     else:
-        return render_template('blogs.html', blogs=blogs, page=p.serialize)
+        return render_template('blogs.html', blogs=blogs, page=p.serialize, page_index=page_index)
 
 
 @app.route('/register', methods=['GET', 'POST'])

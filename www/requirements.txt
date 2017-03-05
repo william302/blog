@@ -2,3 +2,4 @@ flask
 flask-script
 sqlalchemy
 pymysql
+markdown2
