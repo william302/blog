@@ -133,7 +133,10 @@ def register():
             user = User(name=name.strip(), email=email, passwd=pw_hash,
                         image='http://www.gravatar.com/avatar/%s?d=monsterid&s=120' % email_hash)
             session.add(user)
-            session.commit()
+            try:
+                session.commit()
+            except:
+                session.rollback()
             session.close()
             r = make_response(jsonify(email))
             r.headers['Content-type'] = 'application/json; charset=utf-8'
@@ -179,7 +182,10 @@ def api_blogs():
         if not page:
             page = '1'
         page_index = get_page_index(page)
-        num = session.query(Post).count()
+        try:
+            num = session.query(Post).count()
+        except:
+            session.rollback()
         p = Page(num, page_index)
         if num == 0:
             return jsonify(page=p.serialize, blogs=[])
@@ -192,7 +198,10 @@ def api_blogs():
 def api_users(page='1'):
     if request.method == 'GET':
         page_index = get_page_index(page)
-        num = session.query(User).count()
+        try:
+            num = session.query(User).count()
+        except:
+            session.rollback()
         p = Page(num, page_index)
         if num == 0:
             return jsonify(page=p.serialize, users=[])
@@ -236,7 +245,10 @@ def api_blog_edit(blog_id):
         blog.summary = summary.strip()
         blog.content = content.strip()
         session.add(blog)
-        session.commit()
+        try:
+            session.commit()
+        except:
+            session.rollback()
         blog = session.query(Post).filter_by(id=blog_id).first()
         session.close()
         return jsonify(blog.serialize)
@@ -287,7 +299,10 @@ def comment_handler(blog_id):
             raise APIValueError('content', 'content cannot be empty.')
         comment = Comment(content=content.strip(), user_id=user.id, post_id=blog_id, user_name=user.name, user_image=user.image)
         session.add(comment)
-        session.commit()
+        try:
+            session.commit()
+        except:
+            session.rollback()
         session.close()
         r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
         r.headers['Content-type'] = 'application/json; charset=utf-8'
@@ -363,7 +378,10 @@ def manage_new_blog():
         post = Post(user_id=user.id, subject=subject.strip(), summary=summary.strip(), content=content.strip(),
                     user_name=user.name, user_image=user.image)
         session.add(post)
-        session.commit()
+        try:
+            session.commit()
+        except:
+            session.rollback()
         session.close()
         r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
         r.headers['Content-type'] = 'application/json; charset=utf-8'

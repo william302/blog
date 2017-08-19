@@ -48,7 +48,7 @@ class Post(Base):
     id = Column(Integer, primary_key=True)
     subject = Column(String(100))
     summary = Column(String(300))
-    content = Column(String(3000))
+    content = Column(Text(50000))
     created = Column(DateTime, default=datetime.now())
     last_modify = Column(DateTime, default=datetime.now(), onupdate=datetime.now())
     user_id = Column(String(30), nullable=False)
