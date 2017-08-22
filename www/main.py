@@ -94,7 +94,10 @@ def index():
     if not page:
         page = '1'
     page_index = get_page_index(page)
-    num = session.query(Post).count()
+    try:
+        num = session.query(Post).count()
+    except:
+        session.rollback()
     p = Page(num, page_index)
     blogs = []
     if num != 0:
@@ -189,7 +192,9 @@ def api_blogs():
         p = Page(num, page_index)
         if num == 0:
             return jsonify(page=p.serialize, blogs=[])
-        blogs = session.query(Post).order_by(Post.created).offset(p.offset).limit(p.limit)
+        try:
+            blogs = session.query(Post).order_by(Post.created).offset(p.offset).limit(p.limit)
+        except: session.rollback()
         session.close()
         return jsonify(page=p.serialize, blogs=[i.serialize for i in blogs])
 
@@ -214,7 +219,10 @@ def api_users(page='1'):
 def api_comments(page='1'):
     if request.method == 'GET':
         page_index = get_page_index(page)
-        num = session.query(Comment).count()
+        try:
+            num = session.query(Comment).count()
+        except:
+            session.rollback()
         app.logger.error(num)
         p = Page(num, page_index)
         if num == 0:
