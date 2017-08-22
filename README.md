@@ -2,14 +2,10 @@
 
 ### 简介
 
-这是一个使用 `Python` 的 `Flask` 框架编写的多页博客，部署在阿里云上，是一个适合多人使用的社交型网站。
-- 头像使用的是gravatar头像系统，由于gravatar在国外，所以因为网络原因有时头像会无法显示- -！
-- 博客带有分页展示功能
-- 博客管理页面使用AJAX方便文章的更新
+这是我编写的一个多页博客，后端使用的是`Flask`+`Mysql`，前端使用的是`UIkit+Vue`，使用`Gunicorn`+`Nginx`部署在阿里云服务器上。
+### GitHub地址
 
-### 地址
-
-<a href="www.william902.com">www.william902.com</a> 
+<a href="https://github.com/william302/blog">点我</a>
 
 ### 功能
 
@@ -17,8 +13,7 @@
 	<li>注册，登录</li>
 	<li>发布文章</li>
 	<li>发布，回复,管理评论</li>
-	<li>设置资料</li>
-	<li>管理员功能</li>
+	<li>后台管理功能</li>
 </ul>
 
 ### 本地使用
@@ -41,7 +36,7 @@ $ main.py runserver --host 0.0.0.0
 
 ### 阿里云部署
 
-本网站是部署在阿里云上，利用Flask+Gunicorn+Nginx部署
+本网站是部署在阿里云上，利用Gunicorn+Nginx部署
 
 在阿里云上部署较为复杂，具体部署参考文章：[文章地址](http://blog.csdn.net/u012675539/article/details/50836775)
 
