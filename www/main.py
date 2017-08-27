@@ -98,6 +98,7 @@ def index():
         num = session.query(Post).count()
     except:
         session.rollback()
+        num = 1
     p = Page(num, page_index)
     blogs = []
     if num != 0:
@@ -189,6 +190,7 @@ def api_blogs():
             num = session.query(Post).count()
         except:
             session.rollback()
+            num = 1
         p = Page(num, page_index)
         if num == 0:
             return jsonify(page=p.serialize, blogs=[])
@@ -207,6 +209,7 @@ def api_users(page='1'):
             num = session.query(User).count()
         except:
             session.rollback()
+            num = 1
         p = Page(num, page_index)
         if num == 0:
             return jsonify(page=p.serialize, users=[])
@@ -223,7 +226,8 @@ def api_comments(page='1'):
             num = session.query(Comment).count()
         except:
             session.rollback()
-        app.logger.error(num)
+            num = 1
+        # app.logger.error(num)
         p = Page(num, page_index)
         if num == 0:
             return jsonify(page=p.serialize, comments=[])
