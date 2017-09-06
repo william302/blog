@@ -157,7 +157,7 @@ def authenticate():
         email = data['email']
         passwd = data['passwd']
         u = session.query(User).filter_by(email=email).first()
-        session.close()
+        # session.close()
         if u:
             pw_hash = u.passwd
             if valid_pw(email, passwd, pw_hash):
@@ -294,7 +294,7 @@ def blog_handler(blog_id):
     if request.method == 'GET':
         blog = session.query(Post).filter_by(id=blog_id).first()
         comments = session.query(Comment).filter_by(post_id=blog_id).order_by(Comment.created).all()
-        session.close()
+        # session.close()
         return render_template('blog.html', blog=blog, user=user, comments=comments, blog_id=blog_id)
 
 
@@ -326,7 +326,7 @@ def manage_blog():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
     user = session.query(User).filter_by(email=email).first()
-    session.close()
+    # session.close()
     if not user:
         return redirect('/authenticate')
     page = request.args.get('page')
