@@ -103,10 +103,10 @@ def index():
     blogs = []
     if num != 0:
         blogs = session.query(Post).order_by(Post.created).offset(p.offset).limit(p.limit)
-        session.close()
+        # session.close()
     if email:
         user = session.query(User).filter_by(email=email).first()
-        session.close()
+        # session.close()
         return render_template('blogs.html', user=user, blogs=blogs, page=p.serialize, page_index=page_index)
     else:
         return render_template('blogs.html', blogs=blogs, page=p.serialize, page_index=page_index)
@@ -141,7 +141,7 @@ def register():
                 session.commit()
             except:
                 session.rollback()
-            session.close()
+            # session.close()
             r = make_response(jsonify(email))
             r.headers['Content-type'] = 'application/json; charset=utf-8'
             r.set_cookie('email', make_secure_val(email))
@@ -199,7 +199,7 @@ def api_blogs():
         try:
             blogs = session.query(Post).order_by(Post.created).offset(p.offset).limit(p.limit)
         except: session.rollback()
-        session.close()
+        # session.close()
         return jsonify(page=p.serialize, blogs=[i.serialize for i in blogs])
 
 
@@ -216,7 +216,7 @@ def api_users(page='1'):
         if num == 0:
             return jsonify(page=p.serialize, users=[])
         users = session.query(User).order_by(User.created).offset(p.offset).limit(p.limit)
-        session.close()
+        # session.close()
         return jsonify(page=p.serialize, users=[i.serialize for i in users])
 
 
@@ -234,14 +234,14 @@ def api_comments(page='1'):
         if num == 0:
             return jsonify(page=p.serialize, comments=[])
         comments = session.query(Comment).order_by(Comment.created).offset(p.offset).limit(p.limit)
-        session.close()
+        # session.close()
         return jsonify(page=p.serialize, comments=[i.serialize for i in comments])
 
 
 @app.route('/api/blogs/<int:blog_id>', methods=['GET', 'POST'])
 def api_blog_edit(blog_id):
     blog = session.query(Post).filter_by(id=blog_id).first()
-    session.close()
+    # session.close()
     if request.method == 'GET':
         return jsonify(blog.serialize)
     if request.method == 'POST':
@@ -264,7 +264,7 @@ def api_blog_edit(blog_id):
         except:
             session.rollback()
         blog = session.query(Post).filter_by(id=blog_id).first()
-        session.close()
+        # session.close()
         return jsonify(blog.serialize)
 
 
@@ -322,7 +322,7 @@ def comment_handler(blog_id):
             session.commit()
         except:
             session.rollback()
-        session.close()
+        # session.close()
         r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
         r.headers['Content-type'] = 'application/json; charset=utf-8'
         return r
@@ -409,7 +409,7 @@ def manage_new_blog():
             session.commit()
         except:
             session.rollback()
-        session.close()
+        # session.close()
         r = make_response(json.dumps(user.name, ensure_ascii=False).encode('utf-8'))
         r.headers['Content-type'] = 'application/json; charset=utf-8'
         return r
