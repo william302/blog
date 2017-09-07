@@ -156,8 +156,10 @@ def authenticate():
         data = request.get_json()
         email = data['email']
         passwd = data['passwd']
-        u = session.query(User).filter_by(email=email).first()
-        # session.close()
+        try:
+            u = session.query(User).filter_by(email=email).first()
+        except:
+            session.rollback()
         if u:
             pw_hash = u.passwd
             if valid_pw(email, passwd, pw_hash):
@@ -290,7 +292,10 @@ def api_comment_delete(comment_id):
 def blog_handler(blog_id):
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
-    user = session.query(User).filter_by(email=email).first()
+    try:
+        user = session.query(User).filter_by(email=email).first()
+    except:
+        session.rollback()
     if request.method == 'GET':
         blog = session.query(Post).filter_by(id=blog_id).first()
         comments = session.query(Comment).filter_by(post_id=blog_id).order_by(Comment.created).all()
@@ -302,8 +307,10 @@ def blog_handler(blog_id):
 def comment_handler(blog_id):
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
-    user = session.query(User).filter_by(email=email).first()
-    session.close()
+    try:
+        user = session.query(User).filter_by(email=email).first()
+    except:
+        session.rollback()
     if request.method == 'POST':
         data = request.get_json()
         content = data['content']
@@ -325,8 +332,10 @@ def comment_handler(blog_id):
 def manage_blog():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
-    user = session.query(User).filter_by(email=email).first()
-    # session.close()
+    try:
+        user = session.query(User).filter_by(email=email).first()
+    except:
+        session.rollback()
     if not user:
         return redirect('/authenticate')
     page = request.args.get('page')
@@ -340,8 +349,10 @@ def manage_blog():
 def manage_user():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
-    user = session.query(User).filter_by(email=email).first()
-    session.close()
+    try:
+        user = session.query(User).filter_by(email=email).first()
+    except:
+        session.rollback()
     if not user:
         return redirect('/authenticate')
     page = request.args.get('page')
@@ -355,8 +366,10 @@ def manage_user():
 def manage_comment():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
-    user = session.query(User).filter_by(email=email).first()
-    session.close()
+    try:
+        user = session.query(User).filter_by(email=email).first()
+    except:
+        session.rollback()
     if not user:
         return redirect('/authenticate')
     page = request.args.get('page')
@@ -370,8 +383,10 @@ def manage_comment():
 def manage_new_blog():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
-    user = session.query(User).filter_by(email=email).first()
-    session.close()
+    try:
+        user = session.query(User).filter_by(email=email).first()
+    except:
+        session.rollback()
     if not user:
         return redirect('/authenticate')
     if request.method == 'GET':
@@ -404,8 +419,10 @@ def manage_new_blog():
 def manage_edit_blog():
     val_email = request.cookies.get('email')
     email = check_secure_val(val_email)
-    user = session.query(User).filter_by(email=email).first()
-    session.close()
+    try:
+        user = session.query(User).filter_by(email=email).first()
+    except:
+        session.rollback()
     if not user:
         return redirect('/authenticate')
     if request.method == 'GET':
